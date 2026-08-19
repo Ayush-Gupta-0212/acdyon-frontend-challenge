@@ -1,59 +1,62 @@
 # DECISIONS.md — Track 2: Premium Home Page (Codeforces redesign)
 
 **Live URL:** _(add after deploy)_ · **Repo:** _(add after push)_
-**Concept:** Redesign the Codeforces homepage for the "wow, I want an account" reaction — while obeying the honesty rule, which is hard for a page about a product whose whole appeal is *earned* numbers.
+**Concept:** redesign the Codeforces homepage for the "wow, I want an account" reaction — while
+obeying the honesty rule, which is hard for a product whose whole appeal is *earned* numbers.
 
 ## 1. Why this approach over the obvious alternative
 
-The obvious build was React/Next + a component library. I rejected it: this deliverable is one
-page with no state shared across routes, so a framework adds build tooling, hydration cost, and
-deploy friction while proving nothing the brief actually grades. Instead it's **two files —
-static HTML + Tailwind + vanilla JS/GSAP** — deployable on any static host in seconds, and every
-line is inspectable for the follow-up call.
+The obvious build was React/Next + a component library. I rejected it: one page, no cross-route
+state, so a framework buys build tooling, hydration cost, and deploy friction while proving
+nothing the brief grades. Instead: static HTML + compiled Tailwind + vanilla JS/GSAP — **53 KB
+gzipped**, no runtime CSS engine, no icon library, no build step to deploy, every line
+inspectable on the call.
 
-The same reasoning drove the "show the product" section. The obvious move was screenshots of the
-real Codeforces UI. I chose two **simulated, clearly-labeled product mechanics** instead: a live
-judge feed (submissions tick through tests, then settle on a verdict; hover reveals exec
-time/memory/language) and a **rating graph that draws itself through the real rank bands** while
-the handle earns each color — dips included, because that's how Elo works. Motion is the product
-here: a static screenshot can't show judging or climbing. Every animation demonstrates a real
-mechanic; nothing is decorative, which is how I read "motion restraint."
+Same reasoning for "show the product". The obvious move was screenshots of the real UI. I built
+two working mechanics instead: a judge feed where submissions tick through tests and settle on a
+verdict (hover reveals exec time / memory / language), and a **rating graph that draws itself
+through the real rank bands** while the handle earns each colour — dips included, because that's
+how Elo works. Motion *is* the product here; a screenshot can't show judging or climbing. Every
+animation demonstrates a mechanic, which is how I read "motion restraint".
 
-Honesty constraints I enforced on myself: no invented user counts, no testimonials, no real
-users' handles (all handles are algorithm in-jokes), real rating thresholds (Newbie <1200 →
-Legendary Grandmaster 3000+), real judge vocabulary, and visible "simulated · demo data" labels
-plus a not-affiliated disclaimer in the footer.
+Honesty constraints I held: no invented counts, no testimonials, no real users' handles, real
+rating thresholds and judge vocabulary, visible "simulated · demo data" labels, and a
+not-affiliated disclaimer.
 
 ## 2. One trade-off under the time limit — and the real-week version
 
-**Trade-off:** the rating graph runs on hand-rolled, hard-coded trajectory data — one GSAP tween
-drives stroke-dashoffset, a riding dot, and the handle's color flips, with percent-positioned
-HTML labels over a `preserveAspectRatio="none"` SVG. It's ~60 lines and fully controllable, but
-the data is fictional (and labeled as such).
+The rating graph and countdown pull **real data** from the public Codeforces API (`user.rating` —
+type `tourist` and 300+ actual rounds redraw, the chart's domain and gradient stretching to fit;
+`contest.list` for the real next round). The judge feed does **not**. `contest.status` would have
+given me genuine submissions, but rendering real users' handles and failed verdicts as decoration
+on an unofficial redesign is a consent question I didn't want to answer for them — and with no
+contest reliably in progress, the "live" panel would sometimes be empty. So it's simulated,
+fictional handles, labelled as such. Honest and always-on beat real and occasionally creepy.
 
-**What actually shipped beyond the first cut:** the graph now loads **any real handle's rating
-history** from the public Codeforces API (type `tourist` — the domain, bands, and line gradient
-stretch to fit real numbers), and the closing countdown targets the **actual next round** via
-`contest.list`, labeled "live · codeforces api" with a graceful fallback to the labeled concept
-round. Tailwind is a compiled, purged build (not the Play CDN); GSAP is vendored and pinned;
-the icon library was replaced by nine inline SVGs. The result measures Lighthouse **100/100/100/100
-desktop, 99/100/100/100 mobile**, WCAG AA on all 199 text elements, and zero horizontal overflow
-at eight viewport widths — numbers in the README, all measured rather than asserted. **With a real
-week:** response caching and backoff for the API calls, a Lighthouse budget enforced in CI, and
-self-hosted font files to drop the last two external domains.
+**With a real week:** caching and backoff around the API calls, a Lighthouse budget in CI,
+self-hosted fonts to drop the last two external domains, and an opt-in "show a real live round"
+toggle so the honest version of the feed is the user's choice rather than mine.
 
-## 3. Where I used AI tools, and what I personally verified or changed
+## 3. Where I used AI tools, and what I verified or changed
 
-I used Claude (Claude Code) as a pair-programmer for scaffolding, iteration, and in-browser
-verification scripts. Decisions and verification I own:
+I used Claude Code heavily — pair-programming the markup and animation code, and driving a
+headless browser for verification. I set the direction and constraints, reviewed every diff, and
+treated its output as a draft to check. Three cases where checking mattered:
 
-- **The 390px overflow bug:** the AI's first hero used `grid lg:grid-cols-12` with no explicit
-  mobile column; the implicit `auto` track sized to the feed rows' nowrap min-content → 20px of
-  hidden horizontal overflow at exactly 390px. Caught by measuring `scrollWidth` in a real 390px
-  iframe; fixed with an explicit `grid-cols-1` (`minmax(0,1fr)`) so `truncate` can actually work.
-- **Scroll-anchoring guard** (`overflow-anchor: none`) on the live feed after observing Chrome
-  compensate page scroll for row churn.
-- **Reduced-motion paths** for every animation, keyboard/focus equivalents for hover
-  interactions, and the honesty constraints above — checked against the real Codeforces rating
-  system before shipping.
-- _(Add your own notes here before submitting — anything you changed or re-verified yourself.)_
+- **A real bug in its first draft.** The hero used `grid lg:grid-cols-12` with no explicit mobile
+  column, so the implicit `auto` track sized to the feed rows' `nowrap` min-content — **20 px of
+  hidden horizontal overflow at exactly 390 px**, masked by `overflow-x-clip`. It surfaced only
+  because I measured `scrollWidth` in a real 390 px viewport instead of trusting a preview. Fix:
+  explicit `grid-cols-1`, whose `minmax(0,1fr)` track lets `truncate` work.
+- **A "fix" I rejected.** Tailwind's `zinc-500/600/700` all fail AA on `zinc-950`
+  (4.12 / 2.57 / 1.91). Bumping everything to `zinc-400` passes the audit and flattens the type
+  hierarchy the design depends on; I had it define two custom tokens instead (`muted` 5.73:1,
+  `faint` 4.74:1) — two recession tiers, both AA.
+- **A line it hadn't considered.** Real live submissions were technically easy; I ruled them out
+  on consent grounds (§2).
+
+Everything measurable here was measured — Lighthouse **100/100/100/100 desktop, 99/100/100/100
+mobile**, WCAG AA on all 199 text elements, zero horizontal overflow at eight widths — with
+reproduction commands in the README.
+
+> **Before submitting:** add anything you changed or re-verified yourself, then delete this line.
