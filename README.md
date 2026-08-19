@@ -28,20 +28,31 @@ rating trajectory are simulated and labeled as such; handles are fictional.
 
 ## Measured, not claimed
 
-Lighthouse 12.8.2, run against this repo on 19 Aug 2026 (`npx lighthouse@12 <url>`):
+Lighthouse 12.8.2, 19 Aug 2026 (`npx lighthouse@12 <url>`), against **the deployed site** —
+these are the numbers that count, not the flattering localhost ones:
 
-| | Performance | Accessibility | Best Practices | SEO |
+| https://codeforces-redesign.vercel.app | Performance | Accessibility | Best Practices | SEO |
 |---|---|---|---|---|
-| Desktop | **100** | **100** | **100** | **100** |
-| Mobile (throttled 4G) | **99** | **100** | **100** | **100** |
+| Desktop | **97** | **100** | **100** | **100** |
+| Mobile (throttled 4G) | **86** | **100** | **100** | **100** |
 
-Desktop FCP/LCP 0.6 s, TBT 0 ms, CLS 0.024. Mobile LCP 1.8 s, CLS 0.004.
+Desktop FCP/LCP 0.9 s, TBT 0 ms, CLS 0.025. Mobile LCP 3.2 s, TBT 0 ms, CLS 0.001.
+
+On localhost the same commit scores 100 desktop / 99 mobile (LCP 1.8 s). I'm quoting the lower,
+real-network numbers because the gap is the honest part: **mobile LCP is dominated by 2.6 s of
+"render delay", and that render delay is my own hero entrance animation.** The `<h1>` is the LCP
+element; GSAP fades it from `opacity: 0`, so the largest paint can't settle until the timeline
+runs. It's a deliberate trade — the entrance is a big part of the first-three-seconds effect the
+brief asks for — but it is a trade, and the fix (animate `y` without `opacity` on the LCP element,
+or drive the entrance from CSS so it starts at first paint instead of after `main.js`) is a
+30-minute change, not a rewrite.
 
 Other numbers I verified rather than assumed:
 
 - **Zero horizontal overflow at 360 / 390 / 414 / 768 / 1024 / 1280 / 1440 / 1920 px** — measured
   as `scrollWidth === innerWidth` plus a zero-element bounding-box sweep in a real viewport of
-  each width, not by eyeballing a responsive preview.
+  each width, not by eyeballing a responsive preview. (Verified locally; the deployed
+  `index.html`, `main.js`, and `styles.css` are byte-identical by SHA-256 to the files tested.)
 - **Contrast:** all 199 text-bearing elements meet WCAG AA (4.5:1 body, 3:1 large). Tailwind's
   `zinc-500/600/700` measured 4.12 / 2.57 / 1.91 on `zinc-950` and all failed, so the two
   recessive tiers are custom tokens (`muted` 5.73:1, `faint` 4.74:1) that keep the hierarchy
@@ -49,9 +60,7 @@ Other numbers I verified rather than assumed:
 - **Payload:** 170 KB raw / **53 KB gzipped** across 4 files, plus fonts. No runtime CSS engine,
   no icon library, no framework.
 
-Caveat worth stating: the local Python static server sends no gzip and no cache headers, so
-Lighthouse's "enable text compression" and "cache policy" audits flag it. Netlify, Vercel, and
-GitHub Pages all do both automatically, so those resolve on deploy.
+Payload over the wire on Vercel: `styles.css` 6.7 KB, `main.js` 10.9 KB, `gsap.min.js` 29.0 KB.
 
 ## Run locally
 
@@ -77,12 +86,10 @@ npm run build:css
 
 ## Deploy
 
-No build step. Drag the folder into Netlify, `vercel deploy`, or enable GitHub Pages on the repo
-(Settings → Pages → deploy from branch, root).
+Live at **https://codeforces-redesign.vercel.app** (Vercel). No build step — drag the folder into
+Netlify, `vercel deploy`, or enable GitHub Pages (Settings → Pages → deploy from branch, root).
 
-One thing to change after deploying: `og:image` in `index.html` is a relative path. Most crawlers
-resolve it, but the OG spec wants an absolute URL — swap it for
-`https://<your-domain>/og.jpg` so every unfurler agrees.
+If you fork it to another domain, update the absolute `og:url` / `og:image` in `index.html`.
 
 ## Files
 
