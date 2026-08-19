@@ -86,7 +86,7 @@ npm run build:css
 ```
 
 (Runs pinned `tailwindcss@3.4.17` via npx — no install step. It scans `index.html` **and**
-`main.js`, since feed rows, verdict chips, and the easter-egg toast inject classes at runtime.)
+`main.js`, since the feed rows and verdict chips inject classes at runtime.)
 
 ## Deploy
 
