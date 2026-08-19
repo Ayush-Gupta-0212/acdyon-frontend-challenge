@@ -58,8 +58,8 @@ draft to check, including where I overrode it (§2). Three cases where that earn
   dropped the synthetic `oldRating: 0` CF returns for a first contest, which was plotting
   `tourist` as starting at zero instead of his real 1602.
 
-All numbers are measured **against the deployed site**, not localhost: Lighthouse 97/100/100/100
-desktop, **86**/100/100/100 mobile, WCAG AA on all 199 text elements, zero overflow at eight
+All numbers are measured **against the deployed site**, not localhost: Lighthouse 97–99 desktop
+(range across runs, not the best one), **86** mobile, 100 a11y/best-practices/SEO on both, WCAG AA on all 199 text elements, zero overflow at eight
 widths. I quote the mobile 86 over localhost's 99 because I know what it is — the entrance
 animation fades the `<h1>`, the LCP element, from `opacity: 0`. That's my motion design costing
 2.6 s of LCP: a real trade, knowingly made (README has the fix).

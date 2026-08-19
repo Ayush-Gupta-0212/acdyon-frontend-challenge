@@ -33,10 +33,12 @@ these are the numbers that count, not the flattering localhost ones:
 
 | https://codeforces-redesign.vercel.app | Performance | Accessibility | Best Practices | SEO |
 |---|---|---|---|---|
-| Desktop | **97** | **100** | **100** | **100** |
+| Desktop | **97–99** | **100** | **100** | **100** |
 | Mobile (throttled 4G) | **86** | **100** | **100** | **100** |
 
-Desktop FCP/LCP 0.9 s, TBT 0 ms, CLS 0.025. Mobile LCP 3.2 s, TBT 0 ms, CLS 0.001.
+Desktop LCP 0.8–0.9 s, TBT 0 ms, CLS 0.025. Mobile LCP 3.2 s, TBT 0 ms, CLS 0.001. Desktop
+performance is quoted as a range because it landed on 97 and 99 across runs — real-network
+variance, and rounding to the better one would be the kind of thing this brief is testing for.
 
 On localhost the same commit scores 100 desktop / 99 mobile (LCP 1.8 s). I'm quoting the lower,
 real-network numbers because the gap is the honest part: **mobile LCP is dominated by 2.6 s of
