@@ -6,8 +6,8 @@
      0. Setup & helpers
      1. Submission feed — data, rendering, hover micro-interactions
      2. Live judge simulation (new submissions ticking through tests)
-     3. The Climb — rating graph that draws itself through the rank bands
-     4. Clocks — contest timer + registration countdown (one heartbeat)
+     3. The Climb — rating graph: demo data, or any real handle via the CF API
+     4. Real next round + clocks (API-backed countdown, labeled fallback)
      5. Entrance & scroll-reveal animations
      6. Magnetic primary CTA
      7. Mobile menu
@@ -29,7 +29,7 @@ gsap.defaults({ ease: "power3.out", duration: 0.6 });
 // ---------------------------------------------------------------------------
 // 1. Submission feed
 //    Honesty note: handles are fictional algorithm in-jokes, not real accounts.
-//    Problems belong to the fictional "Round #1099". Verdicts/langs mirror the
+//    Problems belong to the fictional "Round #1198". Verdicts/langs mirror the
 //    real Codeforces judge vocabulary.
 // ---------------------------------------------------------------------------
 const RANK_COLOR = {
@@ -302,13 +302,16 @@ if (motionOK) setTimeout(spawnSubmission, 3500);
 
 // ---------------------------------------------------------------------------
 // 3. The Climb — a rating trajectory that draws itself through the rank bands
-//    while the handle label earns each color. Illustrative data, real system.
+//    while the handle label earns each color. Starts on labeled demo data;
+//    type any real handle and it redraws from the public Codeforces API.
 // ---------------------------------------------------------------------------
-// One point per rated round. Dips are deliberate — that's how ratings work.
-const CLIMB_DATA = [
+// Demo trajectory: one point per rated round. Dips are deliberate.
+const DEMO_CLIMB = [
   800, 890, 1020, 960, 1150, 1290, 1240, 1410, 1370, 1520, 1600, 1550, 1740,
   1700, 1880, 1990, 1930, 2120, 2210, 2160, 2340, 2480, 2430, 2620, 2780, 2900, 3010,
 ];
+const DEMO_CAPTION =
+  'illustrative trajectory<span class="hidden sm:inline"> · one point per rated round</span> · dips included';
 
 // Rating → color class for the handle/rating readout.
 const BAND_CLASSES = [
@@ -319,30 +322,122 @@ const BAND_CLASSES = [
   { min: 1600, cls: "text-blue-400" },
   { min: 1400, cls: "text-cyan-400" },
   { min: 1200, cls: "text-green-400" },
-  { min: 0,    cls: "text-zinc-400" },
+  { min: -Infinity, cls: "text-zinc-400" },
 ];
 const bandClass = (r) => BAND_CLASSES.find((b) => r >= b.min).cls;
 
+// Band geometry + the line gradient share one source of truth. Order matches
+// the .climb-label spans in the HTML (top rank first).
+const BANDS = [
+  { from: 3000, to: Infinity,  color: "#ef4444", op: 0.09 },
+  { from: 2400, to: 3000,      color: "#ef4444", op: 0.045 },
+  { from: 2100, to: 2400,      color: "#fb923c", op: 0.05 },
+  { from: 1900, to: 2100,      color: "#a78bfa", op: 0.05 },
+  { from: 1600, to: 1900,      color: "#60a5fa", op: 0.05 },
+  { from: 1400, to: 1600,      color: "#22d3ee", op: 0.05 },
+  { from: 1200, to: 1400,      color: "#4ade80", op: 0.05 },
+  { from: -Infinity, to: 1200, color: "#a1a1aa", op: 0.04 },
+];
+
+const SVG_NS = "http://www.w3.org/2000/svg";
 const climbLine = $("#climb-line");
 const climbGlow = $("#climb-glow");
 const climbDot = $("#climb-dot");
 const climbHandle = $("#climb-handle");
 const climbRating = $("#climb-rating");
+const climbCaption = $("#climb-caption");
+const climbLabels = $$(".climb-label");
+const climbBandsG = $("#climb-bands");
+const climbSepsG = $("#climb-seps");
+const climbGradient = $("#rk");
 
-// Build the path in the SVG's 1000x300 space: x uniform, y = 300 - (r-800)/8.
-const climbD = CLIMB_DATA.map((r, i) => {
-  const x = (i / (CLIMB_DATA.length - 1)) * 1000;
-  const y = 300 - (r - 800) / 8;
-  return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-}).join(" ");
-climbLine.setAttribute("d", climbD);
-climbGlow.setAttribute("d", climbD);
+let climbData = DEMO_CLIMB;
+let domainMin = 800;
+let domainMax = 3200;
+let climbLen = 0;
 
-const climbLen = climbLine.getTotalLength();
-[climbLine, climbGlow].forEach((p) => {
-  p.style.strokeDasharray = climbLen;
-  p.style.strokeDashoffset = climbLen;
-});
+// SVG viewBox is 1000x300; y maps rating → height within the current domain.
+const yOf = (r) => ((domainMax - r) / (domainMax - domainMin)) * 300;
+
+// Rebuild band rects, separators, gradient stops, and label positions for the
+// current domain. For the demo domain (800–3200) this reproduces the classic
+// chart; real histories (tourist goes past 3900) stretch it honestly.
+function layoutClimb() {
+  climbBandsG.innerHTML = "";
+  climbSepsG.innerHTML = "";
+  climbGradient.innerHTML = "";
+
+  BANDS.forEach((b, i) => {
+    const top = yOf(Math.min(b.to, domainMax));
+    const bottom = yOf(Math.max(b.from, domainMin));
+
+    const rect = document.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("x", "0");
+    rect.setAttribute("width", "1000");
+    rect.setAttribute("y", top.toFixed(2));
+    rect.setAttribute("height", Math.max(0, bottom - top).toFixed(2));
+    rect.setAttribute("fill", b.color);
+    rect.setAttribute("opacity", String(b.op));
+    climbBandsG.appendChild(rect);
+
+    if (isFinite(b.from)) {
+      const line = document.createElementNS(SVG_NS, "line");
+      line.setAttribute("x1", "0");
+      line.setAttribute("x2", "1000");
+      line.setAttribute("y1", bottom.toFixed(2));
+      line.setAttribute("y2", bottom.toFixed(2));
+      climbSepsG.appendChild(line);
+    }
+
+    if (climbLabels[i]) {
+      climbLabels[i].style.top = `${(((top + bottom) / 2 / 300) * 100).toFixed(2)}%`;
+    }
+  });
+
+  // Line gradient: hard color switches exactly at the rank thresholds.
+  const off = (r) => Math.min(1, Math.max(0, (r - domainMin) / (domainMax - domainMin)));
+  const addStop = (offset, color) => {
+    const s = document.createElementNS(SVG_NS, "stop");
+    s.setAttribute("offset", offset.toFixed(4));
+    s.setAttribute("stop-color", color);
+    climbGradient.appendChild(s);
+  };
+  const ascending = [...BANDS].reverse();
+  let current = ascending.filter((b) => b.from <= domainMin).pop().color;
+  addStop(0, current);
+  ascending.forEach((b) => {
+    if (isFinite(b.from) && b.from > domainMin && b.from < domainMax) {
+      addStop(off(b.from), current);
+      current = b.color;
+      addStop(off(b.from), current);
+    }
+  });
+  addStop(1, current);
+}
+
+function setClimbData(data) {
+  climbData = data;
+  const dataMin = Math.min(...data);
+  const dataMax = Math.max(...data);
+  domainMin = Math.min(800, Math.floor((dataMin - 50) / 50) * 50);
+  domainMax = Math.max(3200, Math.ceil((dataMax + 100) / 50) * 50);
+  layoutClimb();
+
+  const d = data
+    .map((r, i) => {
+      const x = (i / (data.length - 1)) * 1000;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${yOf(r).toFixed(1)}`;
+    })
+    .join(" ");
+  climbLine.setAttribute("d", d);
+  climbGlow.setAttribute("d", d);
+
+  climbLen = climbLine.getTotalLength();
+  [climbLine, climbGlow].forEach((p) => {
+    p.style.strokeDasharray = climbLen;
+    p.style.strokeDashoffset = climbLen;
+  });
+}
 
 const HANDLE_BASE = "inline-block truncate font-mono text-xs font-semibold";
 const RATING_BASE = "shrink-0 font-mono text-xs tabular-nums";
@@ -353,12 +448,12 @@ function setClimbProgress(p) {
   climbGlow.style.strokeDashoffset = offset;
 
   // Where is the tip right now? (x is uniform, so p maps straight to the data.)
-  const f = p * (CLIMB_DATA.length - 1);
-  const i = Math.min(Math.floor(f), CLIMB_DATA.length - 2);
-  const r = CLIMB_DATA[i] + (CLIMB_DATA[i + 1] - CLIMB_DATA[i]) * (f - i);
+  const f = p * (climbData.length - 1);
+  const i = Math.min(Math.floor(f), climbData.length - 2);
+  const r = climbData[i] + (climbData[i + 1] - climbData[i]) * (f - i);
 
   climbDot.style.left = `${p * 100}%`;
-  climbDot.style.top = `${(1 - (r - 800) / 2400) * 100}%`;
+  climbDot.style.top = `${((domainMax - r) / (domainMax - domainMin)) * 100}%`;
   climbRating.textContent = Math.round(r);
 
   const cls = bandClass(r);
@@ -393,6 +488,8 @@ function playClimb() {
   });
 }
 
+setClimbData(DEMO_CLIMB);
+
 // Draw once when the graph scrolls into view; replay on demand.
 if ("IntersectionObserver" in window) {
   const climbIO = new IntersectionObserver(
@@ -411,24 +508,116 @@ if ("IntersectionObserver" in window) {
 
 $("#climb-replay").addEventListener("click", playClimb);
 
+// --- Real handles: user.rating from the public Codeforces API ---------------
+const climbForm = $("#climb-form");
+const climbInput = $("#climb-input");
+const climbLoadBtn = $("#climb-load");
+const climbStatus = $("#climb-status");
+let climbFetching = false;
+
+function setClimbStatus(msg, isError = false) {
+  climbStatus.textContent = msg;
+  climbStatus.classList.toggle("text-red-400", isError);
+  climbStatus.classList.toggle("text-zinc-500", !isError);
+}
+
+climbForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (climbFetching) return;
+  const handle = climbInput.value.trim();
+
+  // Empty submit restores the labeled demo trajectory.
+  if (!handle) {
+    setClimbData(DEMO_CLIMB);
+    climbHandle.textContent = "future_lgm";
+    climbCaption.innerHTML = DEMO_CAPTION;
+    setClimbStatus("");
+    playClimb();
+    return;
+  }
+
+  if (!/^[A-Za-z0-9_.-]{1,24}$/.test(handle)) {
+    setClimbStatus("that doesn't look like a codeforces handle", true);
+    return;
+  }
+
+  climbFetching = true;
+  climbLoadBtn.textContent = "…";
+  setClimbStatus("querying the codeforces api…");
+  try {
+    const res = await fetch(`https://codeforces.com/api/user.rating?handle=${encodeURIComponent(handle)}`);
+    const data = await res.json();
+    if (data.status !== "OK") {
+      const notFound = (data.comment || "").toLowerCase().includes("not found");
+      setClimbStatus(notFound ? `no such handle: ${handle}` : "the api is rate-limiting — try again in a moment", true);
+      return;
+    }
+    const changes = data.result;
+    if (!changes.length) {
+      setClimbStatus(`${handle} hasn't finished a rated round yet`, true);
+      return;
+    }
+    const canonical = changes[0].handle;
+    setClimbData([changes[0].oldRating, ...changes.map((c) => c.newRating)]);
+    climbHandle.textContent = canonical;
+    climbCaption.textContent = `real rating history of ${canonical} · ${changes.length} rated rounds · via the Codeforces API`;
+    setClimbStatus("real data · codeforces.com/api");
+    playClimb();
+  } catch {
+    setClimbStatus("couldn't reach the codeforces api — offline?", true);
+  } finally {
+    climbFetching = false;
+    climbLoadBtn.textContent = "load";
+  }
+});
+
 // ---------------------------------------------------------------------------
-// 4. Clocks — one heartbeat drives the contest timer and the reg countdown.
+// 4. Real next round + clocks — the closing countdown targets the actual next
+//    Codeforces round when the public API is reachable; otherwise it keeps the
+//    labeled concept round. One heartbeat drives both timers.
 // ---------------------------------------------------------------------------
 const clockEl = $("#contest-clock");
 const regEl = $("#reg-countdown");
-let contestLeft = 47 * 60 + 31;      // Round #1099 — time remaining
-let regLeft = 2 * 3600 + 14 * 60 + 9; // Round #1100 — registration window
+let contestLeft = 47 * 60 + 31;       // fictional Round #1198 — time remaining
+let regLeft = 2 * 3600 + 14 * 60 + 9; // fictional Round #1199 — fallback window
+let nextRound = null;                 // real contest from the API, once loaded
 
-const fmt = (t) => {
-  const h = String(Math.floor(t / 3600)).padStart(2, "0");
+const fmtClock = (t) => {
+  const d = Math.floor(t / 86400);
+  const h = String(Math.floor((t % 86400) / 3600)).padStart(2, "0");
   const m = String(Math.floor((t % 3600) / 60)).padStart(2, "0");
   const s = String(t % 60).padStart(2, "0");
-  return `${h}:${m}:${s}`;
+  return d > 0 ? `${d}d ${h}:${m}:${s}` : `${h}:${m}:${s}`;
 };
 
+const nextRoundLeft = () => Math.max(0, Math.round(nextRound.startTimeSeconds - Date.now() / 1000));
+
+(async () => {
+  try {
+    const res = await fetch("https://codeforces.com/api/contest.list?gym=false");
+    const data = await res.json();
+    if (data.status !== "OK") return;
+    const upcoming = data.result
+      .filter((c) => c.phase === "BEFORE" && c.startTimeSeconds)
+      .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
+    if (!upcoming.length) return;
+    // Prefer the next divisioned (rated) round; otherwise the soonest contest.
+    nextRound = upcoming.find((c) => /Div\.|Educational/i.test(c.name)) || upcoming[0];
+    $("#next-round-label").textContent = `${nextRound.name} · starts in`;
+    $("#api-badge").classList.remove("hidden");
+    regEl.textContent = fmtClock(nextRoundLeft());
+  } catch {
+    /* offline or blocked — the labeled concept round stays */
+  }
+})();
+
 setInterval(() => {
-  if (contestLeft > 0) clockEl.textContent = fmt(--contestLeft);
-  if (regLeft > 0) regEl.textContent = fmt(--regLeft);
+  if (contestLeft > 0) clockEl.textContent = fmtClock(--contestLeft);
+  if (nextRound) {
+    regEl.textContent = fmtClock(nextRoundLeft());
+  } else if (regLeft > 0) {
+    regEl.textContent = fmtClock(--regLeft);
+  }
 }, 1000);
 
 // ---------------------------------------------------------------------------
@@ -546,6 +735,8 @@ let konamiBuffer = [];
 
 window.addEventListener("keydown", (e) => {
   if (e.repeat) return;
+  // Don't hijack typing in the handle input.
+  if (e.target && e.target.tagName === "INPUT") return;
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   konamiBuffer.push(key);
   konamiBuffer = konamiBuffer.slice(-KONAMI.length);

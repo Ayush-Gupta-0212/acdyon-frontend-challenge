@@ -31,11 +31,13 @@ drives stroke-dashoffset, a riding dot, and the handle's color flips, with perce
 HTML labels over a `preserveAspectRatio="none"` SVG. It's ~60 lines and fully controllable, but
 the data is fictional (and labeled as such).
 
-**With a real week:** feed it real data from the **public Codeforces API**
-(`user.rating` returns actual rating histories) with consent-safe caching, so the hero graph
-replays a real climb, plus an automated axe/Lighthouse pass in CI. (Two items from this list
-already landed before submission: Tailwind is a compiled, purged build — not the Play CDN —
-and every dependency is pinned and vendored, with the icon library replaced by nine inline SVGs.)
+**What actually shipped beyond the first cut:** the graph now loads **any real handle's rating
+history** from the public Codeforces API (type `tourist` — the domain, bands, and line gradient
+stretch to fit real numbers), and the closing countdown targets the **actual next round** via
+`contest.list`, labeled "live · codeforces api" with a graceful fallback to the labeled concept
+round. Tailwind is a compiled, purged build (not the Play CDN); GSAP is vendored and pinned;
+the icon library was replaced by nine inline SVGs. **With a real week:** response caching and
+backoff for the API calls, an automated axe/Lighthouse budget in CI, and self-hosted fonts.
 
 ## 3. Where I used AI tools, and what I personally verified or changed
 

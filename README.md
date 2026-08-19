@@ -14,7 +14,12 @@ rating trajectory are simulated and labeled as such; handles are fictional.
   Hover (or tap) a row for exec time / memory / language. The feed pauses while you hover so
   rows never vanish mid-read.
 - **The Climb** — a rating graph that draws itself through the real rank bands while the handle
-  earns each color, dips included. `replay` re-runs it.
+  earns each color, dips included. `replay` re-runs it. **Type any real handle** (try `tourist`)
+  and it redraws with that user's actual rating history via the public Codeforces API — the
+  chart's domain, bands, and line gradient adapt to fit real numbers.
+- **Real countdown** — the closing section targets the actual next Codeforces round (name +
+  start time from `contest.list`, labeled "live · codeforces api"). If the API is unreachable
+  it falls back to the labeled concept round.
 - **Anatomy of a verdict** — a real (tiny) C++ solution and the pretests → system tests →
   Accepted pipeline.
 - Zero horizontal scroll at exactly **390px** and **1440px**. `prefers-reduced-motion` collapses
