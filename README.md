@@ -24,7 +24,7 @@ rating trajectory are simulated and labeled as such; handles are fictional.
   Accepted pipeline.
 - Zero horizontal scroll at exactly **390px** and **1440px**. `prefers-reduced-motion` collapses
   all motion to instant states.
-- There is an easter egg. The footer knows.
+- There is an easter egg. The footer knows — and it is reachable by thumb as well as keyboard.
 
 ## Measured, not claimed
 
