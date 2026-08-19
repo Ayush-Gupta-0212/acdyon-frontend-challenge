@@ -1,6 +1,7 @@
 # DECISIONS.md — Track 2: Premium Home Page (Codeforces redesign)
 
-**Live URL:** _(add after deploy)_ · **Repo:** _(add after push)_
+**Live URL:** _(add after deploy)_ ·
+**Repo:** https://github.com/Ayush-Gupta-0212/acdyon-frontend-challenge
 **Concept:** redesign the Codeforces homepage for the "wow, I want an account" reaction — while
 obeying the honesty rule, which is hard for a product whose whole appeal is *earned* numbers.
 
