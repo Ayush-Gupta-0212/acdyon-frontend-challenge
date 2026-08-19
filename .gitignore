@@ -1,2 +1,5 @@
 # Claude Code local harness config (dev preview server)
 .claude/
+
+node_modules/
+package-lock.json

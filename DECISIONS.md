@@ -33,8 +33,9 @@ the data is fictional (and labeled as such).
 
 **With a real week:** feed it real data from the **public Codeforces API**
 (`user.rating` returns actual rating histories) with consent-safe caching, so the hero graph
-replays a real climb. I'd also move Tailwind from the Play CDN to a compiled build with purged
-CSS, add an automated axe/Lighthouse pass to CI, and pin CDN dependencies by version + SRI hash.
+replays a real climb, plus an automated axe/Lighthouse pass in CI. (Two items from this list
+already landed before submission: Tailwind is a compiled, purged build — not the Play CDN —
+and every dependency is pinned and vendored, with the icon library replaced by nine inline SVGs.)
 
 ## 3. Where I used AI tools, and what I personally verified or changed
 

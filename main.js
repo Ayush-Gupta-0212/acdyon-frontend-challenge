@@ -500,7 +500,6 @@ const mobileMenu = $("#mobile-menu");
 let menuOpen = false;
 
 function setMenuIcons() {
-  // Lucide replaces <i> with <svg>, so re-query by id each time.
   $("#icon-menu").classList.toggle("hidden", menuOpen);
   $("#icon-close").classList.toggle("hidden", !menuOpen);
   menuBtn.setAttribute("aria-expanded", String(menuOpen));
@@ -572,7 +571,7 @@ function showKonamiToast() {
     toastEl.innerHTML = `
       <div class="flex gap-3">
         <div class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-red-500/15 ring-1 ring-red-500/30">
-          <i data-lucide="crown" class="h-5 w-5 text-red-400"></i>
+          <svg class="h-5 w-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>
         </div>
         <div class="min-w-0">
           <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-red-400">// sequence accepted</p>
@@ -583,7 +582,6 @@ function showKonamiToast() {
       </div>
       <div class="js-toast-bar absolute bottom-0 left-0 h-0.5 w-full origin-left bg-red-500/70"></div>`;
     document.body.appendChild(toastEl);
-    lucide.createIcons();
   }
 
   if (toastTl) toastTl.kill();
@@ -606,4 +604,3 @@ function showKonamiToast() {
 // Boot
 // ---------------------------------------------------------------------------
 $("#year").textContent = new Date().getFullYear();
-lucide.createIcons();
