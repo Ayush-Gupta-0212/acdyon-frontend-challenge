@@ -677,7 +677,21 @@ if (motionOK) {
   gsap
     .timeline()
     .from("#site-nav", { y: -16, opacity: 0, duration: 0.5 })
-    .from("[data-hero]", { y: 26, opacity: 0, duration: 0.7, stagger: 0.09 }, "-=0.2")
+    // The <h1> is the LCP element. Fading it from opacity 0 means the largest
+    // paint cannot settle until this timeline runs — measured at 2.6s of pure
+    // render delay on throttled 4G. It slides instead: a transform never
+    // withholds the paint, so LCP fires as soon as the text hits the screen.
+    // Everything else in the hero keeps its fade, and the stagger is unchanged.
+    .from(
+      "[data-hero]",
+      {
+        y: 26,
+        opacity: (i, target) => (target.tagName === "H1" ? 1 : 0),
+        duration: 0.7,
+        stagger: 0.09,
+      },
+      "-=0.2"
+    )
     .from("#live-panel", { y: 30, opacity: 0, scale: 0.985, duration: 0.8 }, "-=0.55");
 
   const revealTargets = new Map();
