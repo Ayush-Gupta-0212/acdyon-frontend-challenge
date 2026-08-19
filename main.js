@@ -806,54 +806,168 @@ window.addEventListener("keydown", (e) => {
   konamiBuffer = konamiBuffer.slice(-KONAMI.length);
   if (konamiBuffer.join(",") === KONAMI.join(",")) {
     konamiBuffer = [];
-    showKonamiToast();
+    showKonamiKO();
   }
 });
 
-let toastEl = null;
-let toastTl = null;
+let koEl = null;
+let koTl = null;
 
-function showKonamiToast() {
-  if (!toastEl) {
-    toastEl = document.createElement("div");
-    toastEl.id = "konami-toast";
-    toastEl.setAttribute("role", "status");
-    toastEl.setAttribute("aria-live", "polite");
-    toastEl.className =
-      "fixed bottom-4 right-4 z-[70] hidden w-[min(24rem,calc(100vw-2rem))] overflow-hidden " +
-      "rounded-xl border border-red-500/30 bg-zinc-900/95 p-4 backdrop-blur-xl " +
-      "shadow-[0_16px_48px_-12px_rgba(239,68,68,0.45)]";
-    toastEl.innerHTML = `
-      <div class="flex gap-3">
-        <div class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-red-500/15 ring-1 ring-red-500/30">
-          <svg class="h-5 w-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>
-        </div>
-        <div class="min-w-0">
-          <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-red-400">// sequence accepted</p>
-          <p class="mt-1 text-sm font-medium leading-snug text-zinc-100">
-            System Override: <span class="font-semibold"><span class="text-zinc-50">L</span><span class="text-red-400">egendary Grandmaster</span></span> Status Unlocked.
-          </p>
-        </div>
-      </div>
-      <div class="js-toast-bar absolute bottom-0 left-0 h-0.5 w-full origin-left bg-red-500/70"></div>`;
-    document.body.appendChild(toastEl);
+// Speed-line hues: the page's accent plus the rank-band colours, weighted red.
+const KO_HUES = ["#ef4444", "#ef4444", "#ef4444", "#f87171", "#fafafa", "#fb923c", "#a78bfa", "#60a5fa"];
+
+function buildKO() {
+  const el = document.createElement("div");
+  el.id = "konami-ko";
+  el.setAttribute("role", "status");
+  el.setAttribute("aria-live", "polite");
+  el.innerHTML = `
+    <div class="ko-backdrop" aria-hidden="true"></div>
+    <div class="ko-lines" aria-hidden="true"></div>
+    <div class="ko-ring" aria-hidden="true"></div>
+    <div class="ko-ring ko-ring-b" aria-hidden="true"></div>
+    <div class="ko-flash" aria-hidden="true"></div>
+    <div class="ko-core">
+      <p class="ko-kicker" aria-hidden="true">// sequence accepted</p>
+      <p class="ko-title" aria-hidden="true"><span class="ko-initial">L</span>EGENDARY</p>
+      <p class="ko-title" aria-hidden="true">GRANDMASTER</p>
+      <p class="ko-sub">System Override: Legendary Grandmaster Status Unlocked.</p>
+    </div>
+    <p class="ko-hint" aria-hidden="true">press esc or click to dismiss</p>`;
+
+  // Speed lines: half sweeping in from each edge, at staggered heights.
+  const lines = $(".ko-lines", el);
+  for (let i = 0; i < 30; i++) {
+    const line = document.createElement("div");
+    const left = i % 2 === 0;
+    line.className = `ko-line ${left ? "is-left" : "is-right"}`;
+    line.style.setProperty("--ko-c", KO_HUES[i % KO_HUES.length]);
+    // Spread across the full height, avoiding the exact centre band so the
+    // wordmark stays legible while the rush reads at a glance.
+    const band = 4 + (i / 30) * 92 + (Math.random() - 0.5) * 6;
+    line.style.top = `${Math.min(97, Math.max(2, band))}%`;
+    const heavy = Math.random() < 0.3;
+    line.style.height = `${heavy ? 6 : 2.5}px`;
+    line.style.width = `${42 + Math.random() * 26}%`;
+    line.style.opacity = "0";
+    line.dataset.dir = left ? "-1" : "1";
+    lines.appendChild(line);
   }
 
-  if (toastTl) toastTl.kill();
-  const bar = $(".js-toast-bar", toastEl);
-
-  toastTl = gsap
-    .timeline()
-    .set(toastEl, { display: "block", clearProps: "y,opacity,scale" })
-    .fromTo(
-      toastEl,
-      { y: 24, opacity: 0, scale: 0.95 },
-      { y: 0, opacity: 1, scale: 1, duration: motionOK ? 0.55 : 0, ease: "back.out(1.7)" }
-    )
-    .fromTo(bar, { scaleX: 1 }, { scaleX: 0, duration: 4.2, ease: "none" }, "<")
-    .to(toastEl, { y: 16, opacity: 0, duration: motionOK ? 0.3 : 0, ease: "power2.in" })
-    .set(toastEl, { display: "none" });
+  el.addEventListener("click", dismissKO);
+  document.body.appendChild(el);
+  return el;
 }
+
+function dismissKO() {
+  if (!koEl || !koEl.classList.contains("is-live")) return;
+  if (koTl) koTl.kill();
+  gsap.to(koEl, {
+    opacity: 0,
+    duration: motionOK ? 0.28 : 0,
+    ease: "power2.in",
+    onComplete: () => {
+      koEl.classList.remove("is-live");
+      gsap.set(koEl, { opacity: 1 });
+    },
+  });
+}
+
+function showKonamiKO() {
+  if (!koEl) koEl = buildKO();
+  if (koTl) koTl.kill();
+
+  const lines = $$(".ko-line", koEl);
+  const rings = $$(".ko-ring", koEl);
+  const titles = $$(".ko-title", koEl);
+  const kicker = $(".ko-kicker", koEl);
+  const sub = $(".ko-sub", koEl);
+  const flash = $(".ko-flash", koEl);
+  const core = $(".ko-core", koEl);
+
+  koEl.classList.add("is-live");
+  gsap.set(koEl, { opacity: 1 });
+
+  // Reduced motion: state without spectacle, then dismiss.
+  if (!motionOK) {
+    gsap.set([kicker, ...titles, sub], { opacity: 1, x: 0, y: 0, scale: 1 });
+    gsap.set(lines, { opacity: 0.5, x: 0 });
+    koTl = gsap.timeline().to({}, { duration: 3 }).call(dismissKO);
+    return;
+  }
+
+  gsap.set($(".ko-backdrop", koEl), { opacity: 0 });
+  gsap.set(lines, { opacity: 0, x: (i, el) => (el.dataset.dir === "-1" ? "-110%" : "110%") });
+  gsap.set(rings, { opacity: 0, scale: 0.2 });
+  gsap.set(flash, { opacity: 0 });
+  gsap.set(titles, { opacity: 0, scaleX: 2.6, scaleY: 3.2, y: 0 });
+  gsap.set([kicker, sub], { opacity: 0, y: 14 });
+  gsap.set(core, { x: 0, y: 0 });
+
+  koTl = gsap.timeline({ onComplete: dismissKO });
+
+  koTl
+    .to($(".ko-backdrop", koEl), { opacity: 1, duration: 0.14, ease: "power2.out" })
+    // Lines rush the centre from both edges.
+    .to(lines, {
+      x: (i, el) => (el.dataset.dir === "-1" ? "18%" : "-18%"),
+      opacity: 1,
+      duration: 0.34,
+      ease: "power3.out",
+      stagger: { each: 0.012, from: "random" },
+    }, 0.02)
+    // The slam: overshoot in, land hard.
+    .to(titles, {
+      opacity: 1,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 0.36,
+      ease: "expo.out",
+      stagger: 0.055,
+    }, 0.1)
+    // Impact frame — flash, shockwaves, and a short camera shake.
+    .to(flash, { opacity: 0.55, duration: 0.06, ease: "none" }, 0.46)
+    .to(flash, { opacity: 0, duration: 0.28, ease: "power2.out" }, 0.52)
+    .to(rings, {
+      opacity: 0.9,
+      scale: 1,
+      duration: 0.05,
+      ease: "none",
+      stagger: 0.09,
+    }, 0.46)
+    .to(rings, {
+      scale: (i) => 3.4 + i * 1.1,
+      opacity: 0,
+      duration: 0.95,
+      ease: "power2.out",
+      stagger: 0.09,
+    }, 0.51)
+    .fromTo(core,
+      { x: 0, y: 0 },
+      { keyframes: [
+          { x: -9, y: 5, duration: 0.05 },
+          { x: 7, y: -4, duration: 0.05 },
+          { x: -4, y: 2, duration: 0.05 },
+          { x: 0, y: 0, duration: 0.06 },
+        ], ease: "none" }, 0.46)
+    // Lines blow past the centre and out.
+    .to(lines, {
+      x: (i, el) => (el.dataset.dir === "-1" ? "130%" : "-130%"),
+      opacity: 0,
+      duration: 0.7,
+      ease: "power2.in",
+      stagger: { each: 0.01, from: "random" },
+    }, 0.5)
+    .to([kicker, sub], { opacity: 1, y: 0, duration: 0.4, ease: "power3.out", stagger: 0.08 }, 0.56)
+    // Slow drift so the frame breathes before it leaves.
+    .to(titles, { scale: 1.035, duration: 1.5, ease: "sine.inOut" }, 0.85)
+    .to({}, { duration: 0.65 });
+}
+
+// Esc closes the finisher.
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") dismissKO();
+});
 
 // ---------------------------------------------------------------------------
 // Boot
