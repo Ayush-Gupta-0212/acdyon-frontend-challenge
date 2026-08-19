@@ -153,6 +153,29 @@
       color: #7c7c85;
     }
 
+    /* Touch progress nudge: confirms the swipe half of the code landed, so the
+       sequence is discoverable on a phone instead of a dead end. */
+    #konami-nudge {
+      position: fixed;
+      left: 50%;
+      bottom: 1.5rem;
+      z-index: 80;
+      display: none;
+      padding: 0.55rem 0.95rem;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 9999px;
+      background: rgba(9, 9, 11, 0.92);
+      backdrop-filter: blur(8px);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.06em;
+      color: #fafafa;
+      white-space: nowrap;
+      box-shadow: 0 10px 30px -10px rgba(239, 68, 68, 0.5);
+    }
+    #konami-nudge.is-live { display: block; }
+    #konami-nudge .kn-accent { color: #f87171; }
+
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
     }
@@ -603,7 +626,7 @@
           <a href="#climb" class="py-2 text-xs text-muted transition-colors hover:text-zinc-200">Rating</a>
           <a href="#join" class="py-2 text-xs text-muted transition-colors hover:text-zinc-200">Register</a>
         </div>
-        <p class="select-none font-mono text-[11px] text-faint">// legends know: ↑ ↑ ↓ ↓ ← → ← → B A</p>
+        <p id="konami-hint" class="select-none font-mono text-[11px] text-faint">// legends know: ↑ ↑ ↓ ↓ ← → ← → B A</p>
       </div>
     </div>
   </footer>

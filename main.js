@@ -810,6 +810,122 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+// --- Touch equivalent -------------------------------------------------------
+// A phone has no arrow keys, so on touch the code is swiped: the eight
+// directions, then two taps for B and A. Listeners are passive and never
+// preventDefault, so normal scrolling is untouched — vertical scroll swipes
+// just fill the buffer harmlessly, exactly like stray keystrokes do.
+const KONAMI_SWIPES = ["up", "up", "down", "down", "left", "right", "left", "right"];
+const SWIPE_MIN = 40;   // px before a drag counts as a swipe
+const TAP_MAX = 12;     // px of movement still considered a tap
+const TAP_MS = 400;
+const PRIMED_MS = 6000; // how long the two taps stay accepted
+
+let swipeBuffer = [];
+let primed = false;
+let tapCount = 0;
+let primedTimer = null;
+let touchStart = null;
+let nudgeEl = null;
+
+function nudge(html, ms = 2600) {
+  if (!nudgeEl) {
+    nudgeEl = document.createElement("div");
+    nudgeEl.id = "konami-nudge";
+    nudgeEl.setAttribute("role", "status");
+    nudgeEl.setAttribute("aria-live", "polite");
+    document.body.appendChild(nudgeEl);
+  }
+  nudgeEl.innerHTML = html;
+  nudgeEl.classList.add("is-live");
+  gsap.killTweensOf(nudgeEl);
+  gsap.fromTo(
+    nudgeEl,
+    { y: 14, opacity: 0, xPercent: -50 },
+    { y: 0, opacity: 1, xPercent: -50, duration: motionOK ? 0.32 : 0, ease: "back.out(1.7)" }
+  );
+  gsap.to(nudgeEl, {
+    y: 10,
+    opacity: 0,
+    xPercent: -50,
+    duration: motionOK ? 0.25 : 0,
+    delay: ms / 1000,
+    ease: "power2.in",
+    onComplete: () => nudgeEl.classList.remove("is-live"),
+  });
+}
+
+function hideNudge() {
+  if (!nudgeEl) return;
+  gsap.killTweensOf(nudgeEl);
+  nudgeEl.classList.remove("is-live");
+}
+
+function unprime() {
+  primed = false;
+  tapCount = 0;
+  clearTimeout(primedTimer);
+}
+
+window.addEventListener(
+  "touchstart",
+  (e) => {
+    if (e.touches.length !== 1) return;
+    const t0 = e.touches[0];
+    touchStart = { x: t0.clientX, y: t0.clientY, at: Date.now() };
+  },
+  { passive: true }
+);
+
+window.addEventListener(
+  "touchend",
+  (e) => {
+    if (!touchStart) return;
+    const t0 = e.changedTouches[0];
+    const dx = t0.clientX - touchStart.x;
+    const dy = t0.clientY - touchStart.y;
+    const dt = Date.now() - touchStart.at;
+    touchStart = null;
+
+    const dist = Math.hypot(dx, dy);
+
+    // A tap — only meaningful once the eight swipes have landed.
+    if (dist < TAP_MAX && dt < TAP_MS) {
+      if (!primed) return;
+      tapCount++;
+      if (tapCount === 1) {
+        nudge('<span class="kn-accent">B</span> — one more', PRIMED_MS);
+      } else if (tapCount >= 2) {
+        unprime();
+        hideNudge();
+        showKonamiKO();
+      }
+      return;
+    }
+
+    if (dist < SWIPE_MIN) return;
+
+    const dir =
+      Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up";
+
+    // Swiping again after priming means they are starting over.
+    if (primed) unprime();
+
+    swipeBuffer.push(dir);
+    swipeBuffer = swipeBuffer.slice(-KONAMI_SWIPES.length);
+
+    if (swipeBuffer.join(",") === KONAMI_SWIPES.join(",")) {
+      swipeBuffer = [];
+      primed = true;
+      tapCount = 0;
+      nudge('sequence primed · <span class="kn-accent">tap twice</span>', PRIMED_MS);
+      clearTimeout(primedTimer);
+      primedTimer = setTimeout(unprime, PRIMED_MS);
+    }
+  },
+  { passive: true }
+);
+
 let koEl = null;
 let koTl = null;
 
@@ -833,7 +949,7 @@ function buildKO() {
       <p class="ko-title" aria-hidden="true">GRANDMASTER</p>
       <p class="ko-sub">System Override: Legendary Grandmaster Status Unlocked.</p>
     </div>
-    <p class="ko-hint" aria-hidden="true">press esc or click to dismiss</p>`;
+    <p class="ko-hint" aria-hidden="true">${hoverCapable ? "press esc or click to dismiss" : "tap to dismiss"}</p>`;
 
   // Speed lines: half sweeping in from each edge, at staggered heights.
   const lines = $(".ko-lines", el);
@@ -962,6 +1078,12 @@ function showKonamiKO() {
     // Slow drift so the frame breathes before it leaves.
     .to(titles, { scale: 1.035, duration: 1.5, ease: "sine.inOut" }, 0.85)
     .to({}, { duration: 0.65 });
+}
+
+// The footer hint should name the input this visitor actually has.
+if (!hoverCapable) {
+  const hint = $("#konami-hint");
+  if (hint) hint.textContent = "// legends know: swipe ↑ ↑ ↓ ↓ ← → ← → then tap ×2";
 }
 
 // Esc closes the finisher.
