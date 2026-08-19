@@ -361,6 +361,7 @@ const RANK_NAMES = [
 const rankName = (r) => RANK_NAMES.find(([min]) => r >= min)[1];
 
 let climbData = DEMO_CLIMB;
+let climbRounds = DEMO_CLIMB.length - 1;
 let domainMin = 800;
 let domainMax = 3200;
 let climbLen = 0;
@@ -424,8 +425,9 @@ function layoutClimb() {
   addStop(1, current);
 }
 
-function setClimbData(data) {
+function setClimbData(data, roundCount = data.length - 1) {
   climbData = data;
+  climbRounds = roundCount;
   const dataMin = Math.min(...data);
   const dataMax = Math.max(...data);
   domainMin = Math.min(800, Math.floor((dataMin - 50) / 50) * 50);
@@ -451,7 +453,7 @@ function setClimbData(data) {
   const peak = Math.max(...data);
   const dips = data.reduce((n, r, i) => (i && r < data[i - 1] ? n + 1 : n), 0);
   climbSr.textContent =
-    `Rating trajectory over ${data.length - 1} rated rounds: ` +
+    `Rating trajectory over ${climbRounds} rated rounds: ` +
     `starts at ${data[0]} (${rankName(data[0])}), ` +
     `ends at ${data[data.length - 1]} (${rankName(data[data.length - 1])}), ` +
     `peaking at ${peak} (${rankName(peak)}), with ${dips} rounds that lost rating.`;
@@ -563,8 +565,7 @@ climbForm.addEventListener("submit", async (e) => {
   climbLoadBtn.textContent = "…";
   setClimbStatus("querying the codeforces api…");
   try {
-    const res = await fetch(`https://codeforces.com/api/user.rating?handle=${encodeURIComponent(handle)}`);
-    const data = await res.json();
+    const data = await cfApi(`user.rating?handle=${encodeURIComponent(handle)}`);
     if (data.status !== "OK") {
       const notFound = (data.comment || "").toLowerCase().includes("not found");
       setClimbStatus(notFound ? `no such handle: ${handle}` : "the api is rate-limiting — try again in a moment", true);
@@ -576,7 +577,12 @@ climbForm.addEventListener("submit", async (e) => {
       return;
     }
     const canonical = changes[0].handle;
-    setClimbData([changes[0].oldRating, ...changes.map((c) => c.newRating)]);
+    // CF reports oldRating 0 for a user's first rated contest (they had none).
+    // Plotting that zero drags the axis to the floor, so start at the first
+    // real rating instead — which is what the official rating graph shows.
+    const ratings = changes.map((c) => c.newRating);
+    const series = changes[0].oldRating > 0 ? [changes[0].oldRating, ...ratings] : ratings;
+    setClimbData(series, changes.length);
     climbHandle.textContent = canonical;
     climbCaption.textContent = `real rating history of ${canonical} · ${changes.length} rated rounds · via the Codeforces API`;
     setClimbStatus("real data · codeforces.com/api");
@@ -610,10 +616,30 @@ const fmtClock = (t) => {
 
 const nextRoundLeft = () => Math.max(0, Math.round(nextRound.startTimeSeconds - Date.now() / 1000));
 
+// The Codeforces API rate-limits to roughly one call every two seconds and
+// answers `{status:"FAILED", comment:"Call limit exceeded"}` when you cross it.
+// A single unretried call means one transient refusal leaves the page on the
+// fallback round for the whole visit — which is exactly what live smoke-testing
+// caught. Retry with backoff; give up quietly and keep the labeled fallback.
+async function cfApi(path, { retries = 2, backoffMs = 1500 } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(`https://codeforces.com/api/${path}`);
+      const data = await res.json();
+      if (data.status === "OK") return data;
+      // Rate-limit refusals are worth retrying; "handle not found" is not.
+      const transient = /limit/i.test(data.comment || "");
+      if (!transient || attempt >= retries) return data;
+    } catch (err) {
+      if (attempt >= retries) throw err;
+    }
+    await new Promise((r) => setTimeout(r, backoffMs * (attempt + 1)));
+  }
+}
+
 (async () => {
   try {
-    const res = await fetch("https://codeforces.com/api/contest.list?gym=false");
-    const data = await res.json();
+    const data = await cfApi("contest.list?gym=false");
     if (data.status !== "OK") return;
     const upcoming = data.result
       .filter((c) => c.phase === "BEFORE" && c.startTimeSeconds)
