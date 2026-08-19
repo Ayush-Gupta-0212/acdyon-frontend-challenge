@@ -100,7 +100,7 @@ function fullVerdict(s) {
 function metricCell(label, value, cls) {
   return `
     <div class="metric min-w-0 rounded-lg border border-white/5 bg-black/40 px-2.5 py-2">
-      <p class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">${label}</p>
+      <p class="font-mono text-[10px] uppercase tracking-wider text-muted">${label}</p>
       <p class="${cls} mt-0.5 truncate font-mono text-xs text-zinc-200">${value}</p>
     </div>`;
 }
@@ -121,11 +121,11 @@ function buildRow(s) {
       <span class="${CHIP_BASE} ${tone.chip}">${chipLabel(s)}</span>
       <div class="min-w-0 flex-1">
         <p class="truncate text-[13px] font-medium text-zinc-100 sm:text-sm">${s.problem}</p>
-        <p class="truncate font-mono text-[11px] text-zinc-500">
+        <p class="truncate font-mono text-[11px] text-muted">
           <span class="${RANK_COLOR[s.rank]}">${s.handle}</span> · <span class="js-ago">${s.ago || "just now"}</span>
         </p>
       </div>
-      <svg class="row-chev h-4 w-4 shrink-0 text-zinc-600" viewBox="0 0 24 24" fill="none"
+      <svg class="row-chev h-4 w-4 shrink-0 text-faint" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
            aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
     </div>
@@ -350,6 +350,15 @@ const climbLabels = $$(".climb-label");
 const climbBandsG = $("#climb-bands");
 const climbSepsG = $("#climb-seps");
 const climbGradient = $("#rk");
+const climbSr = $("#climb-sr");
+
+// Rank title for a rating — also used to narrate the chart for screen readers.
+const RANK_NAMES = [
+  [3000, "Legendary Grandmaster"], [2400, "Grandmaster"], [2100, "Master"],
+  [1900, "Candidate Master"], [1600, "Expert"], [1400, "Specialist"],
+  [1200, "Pupil"], [-Infinity, "Newbie"],
+];
+const rankName = (r) => RANK_NAMES.find(([min]) => r >= min)[1];
 
 let climbData = DEMO_CLIMB;
 let domainMin = 800;
@@ -437,6 +446,15 @@ function setClimbData(data) {
     p.style.strokeDasharray = climbLen;
     p.style.strokeDashoffset = climbLen;
   });
+
+  // Text equivalent of the chart (the SVG itself is aria-hidden).
+  const peak = Math.max(...data);
+  const dips = data.reduce((n, r, i) => (i && r < data[i - 1] ? n + 1 : n), 0);
+  climbSr.textContent =
+    `Rating trajectory over ${data.length - 1} rated rounds: ` +
+    `starts at ${data[0]} (${rankName(data[0])}), ` +
+    `ends at ${data[data.length - 1]} (${rankName(data[data.length - 1])}), ` +
+    `peaking at ${peak} (${rankName(peak)}), with ${dips} rounds that lost rating.`;
 }
 
 const HANDLE_BASE = "inline-block truncate font-mono text-xs font-semibold";
@@ -518,7 +536,7 @@ let climbFetching = false;
 function setClimbStatus(msg, isError = false) {
   climbStatus.textContent = msg;
   climbStatus.classList.toggle("text-red-400", isError);
-  climbStatus.classList.toggle("text-zinc-500", !isError);
+  climbStatus.classList.toggle("text-muted", !isError);
 }
 
 climbForm.addEventListener("submit", async (e) => {

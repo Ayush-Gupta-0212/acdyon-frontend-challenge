@@ -36,8 +36,11 @@ history** from the public Codeforces API (type `tourist` — the domain, bands, 
 stretch to fit real numbers), and the closing countdown targets the **actual next round** via
 `contest.list`, labeled "live · codeforces api" with a graceful fallback to the labeled concept
 round. Tailwind is a compiled, purged build (not the Play CDN); GSAP is vendored and pinned;
-the icon library was replaced by nine inline SVGs. **With a real week:** response caching and
-backoff for the API calls, an automated axe/Lighthouse budget in CI, and self-hosted fonts.
+the icon library was replaced by nine inline SVGs. The result measures Lighthouse **100/100/100/100
+desktop, 99/100/100/100 mobile**, WCAG AA on all 199 text elements, and zero horizontal overflow
+at eight viewport widths — numbers in the README, all measured rather than asserted. **With a real
+week:** response caching and backoff for the API calls, a Lighthouse budget enforced in CI, and
+self-hosted font files to drop the last two external domains.
 
 ## 3. Where I used AI tools, and what I personally verified or changed
 
