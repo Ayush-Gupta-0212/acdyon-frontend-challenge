@@ -324,7 +324,8 @@ const BAND_CLASSES = [
   { min: 1200, cls: "text-green-400" },
   { min: -Infinity, cls: "text-zinc-400" },
 ];
-const bandClass = (r) => BAND_CLASSES.find((b) => r >= b.min).cls;
+const bandClass = (r) =>
+  (BAND_CLASSES.find((b) => r >= b.min) || BAND_CLASSES[BAND_CLASSES.length - 1]).cls;
 
 // Band geometry + the line gradient share one source of truth. Order matches
 // the .climb-label spans in the HTML (top rank first).
@@ -425,7 +426,12 @@ function layoutClimb() {
   addStop(1, current);
 }
 
-function setClimbData(data, roundCount = data.length - 1) {
+function setClimbData(input, roundCount = input.length - 1) {
+  // A handle with exactly one rated round gives a single point, and spacing
+  // points as i/(n-1) would divide by zero — path "MNaN,…", nothing drawn.
+  // Duplicate it so there is a segment to draw: a flat line, which is the
+  // honest picture of one round.
+  const data = input.length === 1 ? [input[0], input[0]] : input;
   climbData = data;
   climbRounds = roundCount;
   const dataMin = Math.min(...data);
@@ -453,7 +459,7 @@ function setClimbData(data, roundCount = data.length - 1) {
   const peak = Math.max(...data);
   const dips = data.reduce((n, r, i) => (i && r < data[i - 1] ? n + 1 : n), 0);
   climbSr.textContent =
-    `Rating trajectory over ${climbRounds} rated rounds: ` +
+    `Rating trajectory over ${climbRounds} rated round${climbRounds === 1 ? "" : "s"}: ` +
     `starts at ${data[0]} (${rankName(data[0])}), ` +
     `ends at ${data[data.length - 1]} (${rankName(data[data.length - 1])}), ` +
     `peaking at ${peak} (${rankName(peak)}), with ${dips} rounds that lost rating.`;
