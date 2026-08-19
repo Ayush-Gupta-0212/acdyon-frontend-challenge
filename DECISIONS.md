@@ -64,4 +64,4 @@ widths. I quote the mobile 86 over localhost's 99 because I know what it is — 
 animation fades the `<h1>`, the LCP element, from `opacity: 0`. That's my motion design costing
 2.6 s of LCP: a real trade, knowingly made (README has the fix).
 
-> **Before submitting:** add anything you changed or re-verified yourself, then delete this line.
+
