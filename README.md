@@ -36,10 +36,11 @@ these are the numbers that count, not the flattering localhost ones:
 | Desktop | **97–99** | **100** | **100** | **100** |
 | Mobile (throttled 4G) | **83–91**, median 87 | **100** | **100** | **100** |
 
-Desktop LCP 0.8–0.9 s, TBT 0 ms, CLS 0.025. Mobile LCP 2.0 s median, TBT 0 ms, CLS 0.001. Both
+Desktop LCP 0.8 s median, TBT 0 ms, CLS 0.025. Mobile LCP 2.0 s median, TBT 0 ms, CLS 0.001. Both
 are quoted as ranges over repeated runs rather than as a single flattering number: mobile spans
 83–91 across five runs on a real network, and picking the 91 would be exactly the kind of thing
-this brief is testing for.
+this brief is testing for. Desktop is 97–99 on a warm edge cache; one cold-start run measured 86
+(LCP 1.6 s), which is what a first-ever visit to a cold region looks like.
 
 Worth the paragraph, because it was a real defect rather than a tuning knob: the `<h1>` is the LCP
 element, and the hero entrance originally faded it from `opacity: 0`. An element at opacity 0 is
